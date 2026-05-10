@@ -40,7 +40,7 @@ export default function HistoryPage() {
       const response = await fetch(endpoint);
       if (!response.ok) throw new Error("Failed to load try-ons");
       const data = await response.json();
-      setTryOns(data);
+      setTryOns(data.data || data);
     } catch {
       setError("An error occurred while loading try-ons.");
     } finally {

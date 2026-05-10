@@ -22,19 +22,21 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
   const enableHuggingFace = process.env.ENABLE_HUGGINGFACE === 'true';
   const enableReplicate = process.env.ENABLE_REPLICATE === 'true';
 
+  console.log(`[ML-Service] Config:`, { useMock, enableHuggingFace, enableReplicate });
+
   // If mock is enabled, use it directly
   if (useMock) {
-    console.log('Using mock ML service');
+    console.log('[ML-Service] Using mock ML service (forced by config)');
     return await mockTryOn(request, startTime);
   }
 
   // Try Hugging Face first
   if (enableHuggingFace) {
     try {
-      console.log('Attempting Hugging Face API');
+      console.log('[ML-Service] Attempting Hugging Face API');
       return await huggingFaceTryOn(request, startTime);
     } catch (error) {
-      console.error('Hugging Face API failed:', error);
+      console.error('[ML-Service] Hugging Face API failed:', error instanceof Error ? error.message : error);
       // Continue to fallback
     }
   }
@@ -42,16 +44,16 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
   // Try Replicate as fallback
   if (enableReplicate) {
     try {
-      console.log('Attempting Replicate API');
+      console.log('[ML-Service] Attempting Replicate API');
       return await replicateTryOn(request, startTime);
     } catch (error) {
-      console.error('Replicate API failed:', error);
+      console.error('[ML-Service] Replicate API failed:', error instanceof Error ? error.message : error);
       // Continue to fallback
     }
   }
 
   // Final fallback to mock
-  console.log('All ML services failed, using mock');
+  console.log('[ML-Service] All ML services failed, using mock as fallback');
   return await mockTryOn(request, startTime);
 }
 
@@ -60,10 +62,12 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
  */
 async function mockTryOn(request: TryOnRequest, startTime: number): Promise<TryOnResponse> {
   // Simulate processing time
+  console.log('[ML-Service] Mock service: Simulating processing...');
   await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
 
   // Return the body image as result (placeholder)
   // In a real scenario, you'd return a properly processed image
+  console.log('[ML-Service] Mock service: Returning body image as placeholder result');
   return {
     resultUrl: request.bodyImageUrl, // Placeholder - returns original body image
     modelUsed: 'mock',
@@ -137,6 +141,7 @@ async function replicateTryOn(request: TryOnRequest, startTime: number): Promise
     };
 
     const selectedModel = models[modelVersion] || models.catvton;
+    console.log(`[ML-Service] Using Replicate model: ${selectedModel}`);
 
     // Create a prediction
     const createResponse = await axios.post(
@@ -153,15 +158,21 @@ async function replicateTryOn(request: TryOnRequest, startTime: number): Promise
           'Authorization': `Token ${apiToken}`,
           'Content-Type': 'application/json',
         },
+        timeout: 30000,
       }
     );
 
     const predictionId = createResponse.data.id;
+    console.log(`[ML-Service] Prediction created: ${predictionId}`);
 
     // Poll for completion
     let prediction = createResponse.data;
-    while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+    let pollCount = 0;
+    const maxPolls = 120; // 2 minutes max polling
+
+    while (prediction.status !== 'succeeded' && prediction.status !== 'failed' && pollCount < maxPolls) {
       await new Promise(resolve => setTimeout(resolve, 1000));
+      pollCount++;
       
       const statusResponse = await axios.get(
         `https://api.replicate.com/v1/predictions/${predictionId}`,
@@ -169,14 +180,21 @@ async function replicateTryOn(request: TryOnRequest, startTime: number): Promise
           headers: {
             'Authorization': `Token ${apiToken}`,
           },
+          timeout: 30000,
         }
       );
       
       prediction = statusResponse.data;
+      console.log(`[ML-Service] Poll ${pollCount}: Status = ${prediction.status}`);
     }
 
     if (prediction.status === 'failed') {
-      throw new Error('Replicate prediction failed');
+      console.error(`[ML-Service] Prediction failed:`, prediction.error);
+      throw new Error(`Replicate prediction failed: ${prediction.error || 'Unknown error'}`);
+    }
+
+    if (pollCount >= maxPolls) {
+      throw new Error('Replicate processing timeout');
     }
 
     // Handle different output formats from different models
@@ -185,14 +203,20 @@ async function replicateTryOn(request: TryOnRequest, startTime: number): Promise
       resultUrl = prediction.output[0]; // CatVTON returns an array
     }
 
+    console.log(`[ML-Service] Result obtained: ${resultUrl}`);
+
     return {
       resultUrl,
       modelUsed: 'replicate',
       processingTime: Date.now() - startTime,
     };
   } catch (error: any) {
+    console.error(`[ML-Service] Replicate error:`, error.message);
     if (error.response?.status === 402) {
       throw new Error('Replicate credits exhausted');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Replicate API token invalid');
     }
     throw error;
   }

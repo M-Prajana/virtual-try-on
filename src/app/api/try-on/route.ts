@@ -185,15 +185,23 @@ async function processTryOnAsync(
       data: { status: "processing" },
     });
 
+    console.log(`[Try-On] Starting processing for ${tryOnId}`);
+    console.log(`[Try-On] Body: ${bodyImageUrl}`);
+    console.log(`[Try-On] Garment: ${garmentImageUrl}`);
+
     // Process the try-on using ML service
     const result = await processTryOn({
       bodyImageUrl,
       garmentImageUrl,
     });
 
+    console.log(`[Try-On] Processing completed with model: ${result.modelUsed}`);
+    console.log(`[Try-On] Result URL: ${result.resultUrl}`);
+
     // Upload result image to storage if it's not already a URL
     let resultUrl = result.resultUrl;
     if (result.modelUsed === 'mock') {
+      console.warn(`[Try-On] WARNING: Using mock result for ${tryOnId}`);
       // For mock, we just use the body image URL
       resultUrl = bodyImageUrl;
     }
@@ -211,8 +219,10 @@ async function processTryOnAsync(
         },
       },
     });
+
+    console.log(`[Try-On] Successfully saved result for ${tryOnId}`);
   } catch (error) {
-    console.error("Try-on processing error:", error);
+    console.error("[Try-On] Processing error:", error);
     
     // Update status to failed
     await prisma.tryOnResult.update({
