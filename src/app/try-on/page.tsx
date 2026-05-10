@@ -264,7 +264,7 @@ export default function TryOnPage() {
           <p className="mt-4 text-sm text-slate-400">Processing usually completes in under 30 seconds.</p>
         </div>
 
-        {result?.resultUrl && (
+        {result && result.status === "completed" && result.resultUrl && (
           <div className="rounded-[2rem] glass premium-shadow p-8 overflow-hidden">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>

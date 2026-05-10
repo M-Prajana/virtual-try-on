@@ -95,7 +95,7 @@ async function mockTryOn(request: TryOnRequest, startTime: number): Promise<TryO
 
 /**
  * Local diffusers model integration
- * Model: camenduru/IDM-VTON-F16
+ * Model: yisol/IDM-VTON
  */
 async function localTryOn(request: TryOnRequest, startTime: number): Promise<TryOnResponse> {
   return new Promise((resolve, reject) => {
@@ -103,56 +103,58 @@ async function localTryOn(request: TryOnRequest, startTime: number): Promise<Try
 
     // Create a Python script to run the diffusers model
     const pythonScript = `
+import sys
+import tempfile
 import torch
 from diffusers import DiffusionPipeline
 from diffusers.utils import load_image
-import sys
-import os
-import tempfile
 
 try:
     # Get URLs from command line arguments
     body_url = sys.argv[1]
     garment_url = sys.argv[2]
-    
+
     print(f"Loading images from: {body_url}, {garment_url}")
-    
+
     # Load images
     body_image = load_image(body_url)
     garment_image = load_image(garment_url)
-    
+
     print("Images loaded successfully")
-    
-    # Load the model (using CPU for compatibility)
-    print("Loading IDM-VTON model...")
+
+    # Pick the best device available
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    dtype = torch.float16 if device == "cuda" else torch.float32
+
+    print(f"Loading yisol/IDM-VTON on device: {device} with dtype: {dtype}")
     pipe = DiffusionPipeline.from_pretrained(
-        "camenduru/IDM-VTON-F16", 
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto" if torch.cuda.is_available() else None
+        "yisol/IDM-VTON",
+        torch_dtype=dtype,
+        device_map="auto" if device != "cpu" else None,
     )
-    
-    if not torch.cuda.is_available():
+
+    if device == "cpu":
         pipe = pipe.to("cpu")
-        print("Running on CPU (slower)")
-    
+    elif device == "mps":
+        pipe = pipe.to("mps")
+
     print("Model loaded, starting inference...")
-    
-    # Run inference
+
     result = pipe(
         image=body_image,
-        prompt="professional photo of a person wearing the garment",
-        num_inference_steps=20,  # Faster for demo
-        guidance_scale=7.5
+        garment_image=garment_image,
+        prompt="A high-quality virtual try-on photo of the person wearing the garment",
+        num_inference_steps=20,
+        guidance_scale=7.5,
     ).images[0]
-    
-    # Save result to temporary file
+
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
         result.save(tmp_file.name)
         result_path = tmp_file.name
-    
+
     print(f"Processing complete! Result saved to: {result_path}")
-    print(result_path)  # Output the path for Node.js to read
-    
+    print(result_path)
+
 except Exception as e:
     print(f"ERROR: {str(e)}", file=sys.stderr)
     sys.exit(1)
@@ -179,12 +181,16 @@ except Exception as e:
         // Success - extract the result path from stdout
         const resultPath = stdout.trim().split('\n').pop()?.trim();
         
-        if (resultPath && resultPath.startsWith('/tmp/')) {
+        if (resultPath) {
           try {
-            // Upload the result to Cloudinary
             const fs = require('fs');
+            if (!fs.existsSync(resultPath)) {
+              reject(new Error(`Result file not found: ${resultPath}`));
+              return;
+            }
+
+            // Upload the result to Cloudinary
             const { uploadImage } = require('../lib/storage');
-            
             const resultBuffer = fs.readFileSync(resultPath);
             const uploadResult = await uploadImage(resultBuffer, 'results', 'local-processing');
             

@@ -22,20 +22,55 @@ export interface UploadResult {
 export async function uploadImage(
   file: Buffer | string,
   folder: 'body_images' | 'garment_images' | 'results',
-  userId?: string
+  userId?: string,
+  mimeType: string = 'image/jpeg'
 ): Promise<UploadResult> {
   try {
-    const result = await cloudinary.uploader.upload(
-      typeof file === 'string' ? file : `data:image/jpeg;base64,${file.toString('base64')}`,
-      {
+    const effectiveMimeType = mimeType || 'image/jpeg';
+
+    console.log('[Cloudinary] uploadImage', {
+      folder,
+      mimeType: effectiveMimeType,
+      sourceType: typeof file,
+      sourceSize: typeof file === 'string' ? file.length : file.length,
+      userId,
+    });
+
+    let result;
+
+    if (Buffer.isBuffer(file)) {
+      result = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `virtual-tryon/${folder}`,
+            resource_type: 'image',
+            transformation: [
+              { quality: 'auto', fetch_format: 'auto' },
+            ],
+            ...(userId && { public_id: `${userId}_${Date.now()}` }),
+          },
+          (error, uploadResult) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve(uploadResult);
+          }
+        );
+
+        uploadStream.end(file);
+      });
+    } else {
+      const uploadSource = `data:${effectiveMimeType};base64,${file.toString('base64')}`;
+      result = await cloudinary.uploader.upload(uploadSource, {
         folder: `virtual-tryon/${folder}`,
         resource_type: 'image',
         transformation: [
           { quality: 'auto', fetch_format: 'auto' },
         ],
         ...(userId && { public_id: `${userId}_${Date.now()}` }),
-      }
-    );
+      });
+    }
 
     return {
       url: result.secure_url,
@@ -45,9 +80,19 @@ export async function uploadImage(
       format: result.format,
       size: result.bytes,
     };
-  } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
-    throw new Error('Failed to upload image');
+  } catch (error: any) {
+    console.error('Error uploading to Cloudinary:', {
+      message: error?.message,
+      name: error?.name,
+      http_code: error?.http_code,
+      status_code: error?.status_code,
+      details: error?.details || error?.error || null,
+      raw: error,
+    });
+    const originalMessage = error?.message || JSON.stringify(error) || 'unknown error';
+    const uploadError = new Error(`Failed to upload image: ${originalMessage}`);
+    (uploadError as any).original = error;
+    throw uploadError;
   }
 }
 

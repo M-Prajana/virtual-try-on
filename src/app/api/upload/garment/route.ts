@@ -40,8 +40,15 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    console.log('[Garment Upload] file info', {
+      type: file.type,
+      size: file.size,
+      name: file.name,
+      bufferLength: buffer.length,
+    });
+
     // Upload to Cloudinary
-    const uploadResult = await uploadImage(buffer, "garment_images", session.user.id);
+    const uploadResult = await uploadImage(buffer, "garment_images", session.user.id, file.type);
 
     // Save to database
     const garmentImage = await prisma.garmentImage.create({
@@ -73,8 +80,12 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
-    console.error("Garment image upload error:", error);
+  } catch (error: any) {
+    console.error("Garment image upload error:", {
+      message: error?.message,
+      stack: error?.stack,
+      raw: error,
+    });
     return NextResponse.json(
       { success: false, error: "Failed to upload image" },
       { status: 500 }
