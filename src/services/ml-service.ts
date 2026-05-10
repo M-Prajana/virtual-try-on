@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { spawn } from 'child_process';
 
 export interface TryOnRequest {
   bodyImageUrl: string;
@@ -7,7 +8,7 @@ export interface TryOnRequest {
 
 export interface TryOnResponse {
   resultUrl: string;
-  modelUsed: 'mock' | 'huggingface' | 'replicate';
+  modelUsed: 'mock' | 'huggingface' | 'replicate' | 'local';
   processingTime: number;
 }
 
@@ -21,8 +22,9 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
   const useMock = process.env.USE_MOCK_ML === 'true';
   const enableHuggingFace = process.env.ENABLE_HUGGINGFACE === 'true';
   const enableReplicate = process.env.ENABLE_REPLICATE === 'true';
+  const enableLocal = process.env.ENABLE_LOCAL_ML === 'true';
 
-  console.log(`[ML-Service] Config:`, { useMock, enableHuggingFace, enableReplicate });
+  console.log(`[ML-Service] Config:`, { useMock, enableHuggingFace, enableReplicate, enableLocal });
 
   // If mock is enabled, use it directly
   if (useMock) {
@@ -30,7 +32,18 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
     return await mockTryOn(request, startTime);
   }
 
-  // Try Hugging Face first
+  // Try local diffusers model first
+  if (enableLocal) {
+    try {
+      console.log('[ML-Service] Attempting local diffusers model');
+      return await localTryOn(request, startTime);
+    } catch (error) {
+      console.error('[ML-Service] Local model failed:', error instanceof Error ? error.message : error);
+      // Continue to fallback
+    }
+  }
+
+  // Try Hugging Face API
   if (enableHuggingFace) {
     try {
       console.log('[ML-Service] Attempting Hugging Face API');
@@ -78,6 +91,130 @@ async function mockTryOn(request: TryOnRequest, startTime: number): Promise<TryO
     modelUsed: 'mock',
     processingTime: Date.now() - startTime,
   };
+}
+
+/**
+ * Local diffusers model integration
+ * Model: camenduru/IDM-VTON-F16
+ */
+async function localTryOn(request: TryOnRequest, startTime: number): Promise<TryOnResponse> {
+  return new Promise((resolve, reject) => {
+    console.log('[ML-Service] Starting local IDM-VTON processing...');
+
+    // Create a Python script to run the diffusers model
+    const pythonScript = `
+import torch
+from diffusers import DiffusionPipeline
+from diffusers.utils import load_image
+import sys
+import os
+import tempfile
+
+try:
+    # Get URLs from command line arguments
+    body_url = sys.argv[1]
+    garment_url = sys.argv[2]
+    
+    print(f"Loading images from: {body_url}, {garment_url}")
+    
+    # Load images
+    body_image = load_image(body_url)
+    garment_image = load_image(garment_url)
+    
+    print("Images loaded successfully")
+    
+    # Load the model (using CPU for compatibility)
+    print("Loading IDM-VTON model...")
+    pipe = DiffusionPipeline.from_pretrained(
+        "camenduru/IDM-VTON-F16", 
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        device_map="auto" if torch.cuda.is_available() else None
+    )
+    
+    if not torch.cuda.is_available():
+        pipe = pipe.to("cpu")
+        print("Running on CPU (slower)")
+    
+    print("Model loaded, starting inference...")
+    
+    # Run inference
+    result = pipe(
+        image=body_image,
+        prompt="professional photo of a person wearing the garment",
+        num_inference_steps=20,  # Faster for demo
+        guidance_scale=7.5
+    ).images[0]
+    
+    # Save result to temporary file
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+        result.save(tmp_file.name)
+        result_path = tmp_file.name
+    
+    print(f"Processing complete! Result saved to: {result_path}")
+    print(result_path)  # Output the path for Node.js to read
+    
+except Exception as e:
+    print(f"ERROR: {str(e)}", file=sys.stderr)
+    sys.exit(1)
+`;
+
+    // Run the Python script
+    const pythonProcess = spawn('python3', ['-c', pythonScript, request.bodyImageUrl, request.garmentImageUrl], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    pythonProcess.on('close', async (code) => {
+      if (code === 0) {
+        // Success - extract the result path from stdout
+        const resultPath = stdout.trim().split('\n').pop()?.trim();
+        
+        if (resultPath && resultPath.startsWith('/tmp/')) {
+          try {
+            // Upload the result to Cloudinary
+            const fs = require('fs');
+            const { uploadImage } = require('../lib/storage');
+            
+            const resultBuffer = fs.readFileSync(resultPath);
+            const uploadResult = await uploadImage(resultBuffer, 'results', 'local-processing');
+            
+            // Clean up temp file
+            fs.unlinkSync(resultPath);
+            
+            console.log('[ML-Service] Local processing successful!');
+            resolve({
+              resultUrl: uploadResult.url,
+              modelUsed: 'local',
+              processingTime: Date.now() - startTime,
+            });
+          } catch (uploadError) {
+            console.error('[ML-Service] Upload failed:', uploadError);
+            reject(new Error('Failed to upload result image'));
+          }
+        } else {
+          reject(new Error('Invalid result path from Python script'));
+        }
+      } else {
+        console.error('[ML-Service] Python script failed:', stderr);
+        reject(new Error(`Local processing failed: ${stderr}`));
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error('[ML-Service] Failed to start Python process:', error);
+      reject(new Error('Failed to start local processing'));
+    });
+  });
 }
 
 /**
@@ -240,6 +377,10 @@ export function getServiceStatus() {
     replicate: {
       enabled: process.env.ENABLE_REPLICATE === 'true',
       configured: !!process.env.REPLICATE_API_TOKEN,
+    },
+    local: {
+      enabled: process.env.ENABLE_LOCAL_ML === 'true',
+      configured: true, // Local model is always configured if enabled
     },
   };
 }
