@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 interface TryOnResult {
   id: string;
-  resultImageUrl: string;
+  resultUrl: string;
   status: string;
   createdAt: string;
   isFavorite: boolean;
@@ -145,7 +145,18 @@ export default function HistoryPage() {
             {tryOns.map((tryOn) => (
               <div key={tryOn.id} className="overflow-hidden rounded-[2rem] glass premium-shadow transition hover:-translate-y-2 hover:scale-[1.02] border border-white/10">
                 <div className="relative h-64 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
-                  <Image src={tryOn.resultImageUrl} alt="Try-on result" fill className="object-cover" />
+                  {tryOn.resultUrl ? (
+                    <Image src={tryOn.resultUrl} alt="Try-on result" fill className="object-cover" />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                        <p className="text-sm">Processing...</p>
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={() => toggleFavorite(tryOn.id, tryOn.isFavorite)}
                     className="absolute top-4 right-4 inline-flex h-11 w-11 items-center justify-center rounded-full glass text-slate-950 dark:text-slate-100 premium-shadow transition hover:scale-110"
