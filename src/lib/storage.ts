@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -44,6 +45,8 @@ export async function uploadImage(
           {
             folder: `virtual-tryon/${folder}`,
             resource_type: 'image',
+            timeout: 120000,
+            chunk_size: 6000000,
             transformation: [
               { quality: 'auto', fetch_format: 'auto' },
             ],
@@ -58,7 +61,8 @@ export async function uploadImage(
           }
         );
 
-        uploadStream.end(file);
+        const bufferStream = Readable.from(file);
+        bufferStream.pipe(uploadStream);
       });
     } else {
       const uploadSource = `data:${effectiveMimeType};base64,${file.toString('base64')}`;

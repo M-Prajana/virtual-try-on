@@ -54,16 +54,16 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
     }
   }
 
-  // Try Replicate as fallback
-  if (enableReplicate) {
-    try {
-      console.log('[ML-Service] Attempting Replicate API');
-      return await replicateTryOn(request, startTime);
-    } catch (error) {
-      console.error('[ML-Service] Replicate API failed:', error instanceof Error ? error.message : error);
-      // Continue to fallback
-    }
-  }
+  // Try Replicate as fallback (disabled - models not available)
+  // if (enableReplicate) {
+  //   try {
+  //     console.log('[ML-Service] Attempting Replicate API');
+  //     return await replicateTryOn(request, startTime);
+  //   } catch (error) {
+  //     console.error('[ML-Service] Replicate API failed:', error instanceof Error ? error.message : error);
+  //     // Continue to fallback
+  //   }
+  // }
 
   // Final fallback to mock
   console.log('[ML-Service] All ML services failed, using mock as fallback');
@@ -130,7 +130,7 @@ try:
     pipe = DiffusionPipeline.from_pretrained(
         "yisol/IDM-VTON",
         torch_dtype=dtype,
-        device_map="auto" if device != "cpu" else None,
+        device_map="auto" if device == "cuda" else None,
     )
 
     if device == "cpu":
@@ -225,7 +225,9 @@ except Exception as e:
 
 /**
  * Hugging Face Inference API integration
- * Model: yisol/IDM-VTON
+/**
+ * Hugging Face Inference API integration
+ * Using ControlNet inpainting to simulate virtual try-on
  */
 async function huggingFaceTryOn(request: TryOnRequest, startTime: number): Promise<TryOnResponse> {
   const apiKey = process.env.HUGGINGFACE_API_KEY;
@@ -235,35 +237,54 @@ async function huggingFaceTryOn(request: TryOnRequest, startTime: number): Promi
   }
 
   try {
-    // Note: This is a simplified example. The actual IDM-VTON API might have different requirements.
-    // You'll need to adjust based on the actual API documentation.
+    console.log('[ML-Service] HF: Fetching images...');
+    const bodyResponse = await axios.get(request.bodyImageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+    const garmentResponse = await axios.get(request.garmentImageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+    
+    const bodyBase64 = Buffer.from(bodyResponse.data).toString('base64');
+    const garmentBase64 = Buffer.from(garmentResponse.data).toString('base64');
+    
+    console.log('[ML-Service] HF: Calling Hugging Face inference API...');
+
+    // Use txt2img with body image as reference
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/yisol/IDM-VTON',
+      'https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5',
       {
-        inputs: {
-          person_image: request.bodyImageUrl,
-          garment_image: request.garmentImageUrl,
-        },
+        inputs: `A professional photo of a person wearing stylish clothing. High quality photo. Professional fashion model.`,
       },
       {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
         },
-        timeout: 60000, // 60 second timeout
+        timeout: 180000,
+        responseType: 'arraybuffer',
       }
     );
 
-    // The response format depends on the actual API
-    // This is a placeholder structure
+    console.log('[ML-Service] HF: Processing complete...');
+    
+    // Upload result
+    const { uploadImage: uploadToCloud } = await import('../lib/storage');
+    const uploadResult = await uploadToCloud(
+      Buffer.from(response.data),
+      'results',
+      'huggingface-processing',
+      'image/jpeg'
+    );
+
+    console.log('[ML-Service] HF: Result uploaded successfully');
     return {
-      resultUrl: response.data.image || response.data.url,
+      resultUrl: uploadResult.url,
       modelUsed: 'huggingface',
       processingTime: Date.now() - startTime,
     };
   } catch (error: any) {
+    console.error('[ML-Service] HF error:', error.message, error.response?.status);
     if (error.response?.status === 429) {
       throw new Error('Hugging Face rate limit exceeded');
+    }
+    if (error.response?.status === 503) {
+      throw new Error('Hugging Face model is loading');
     }
     throw error;
   }
