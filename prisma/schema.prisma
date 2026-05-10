@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  bodyImages    BodyImage[]
+  garmentImages GarmentImage[]
+  tryOnResults  TryOnResult[]
+}
+
+model BodyImage {
+  id           String   @id @default(cuid())
+  userId       String
+  imageUrl     String
+  cloudinaryId String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tryOnResults TryOnResult[]
+  
+  @@index([userId])
+}
+
+model GarmentImage {
+  id           String   @id @default(cuid())
+  userId       String
+  imageUrl     String
+  cloudinaryId String
+  category     String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tryOnResults TryOnResult[]
+  
+  @@index([userId])
+}
+
+model TryOnResult {
+  id                 String   @id @default(cuid())
+  userId             String
+  bodyImageId        String
+  garmentImageId     String
+  resultUrl          String?
+  status             String   @default("pending") // pending, processing, completed, failed
+  modelUsed          String?  // huggingface, replicate, mock
+  processingMetadata Json?
+  isFavorite         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bodyImage      BodyImage     @relation(fields: [bodyImageId], references: [id], onDelete: Cascade)
+  garmentImage   GarmentImage  @relation(fields: [garmentImageId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+}
