@@ -62,12 +62,17 @@ export async function processTryOn(request: TryOnRequest): Promise<TryOnResponse
  */
 async function mockTryOn(request: TryOnRequest, startTime: number): Promise<TryOnResponse> {
   // Simulate processing time
-  console.log('[ML-Service] Mock service: Simulating processing...');
+  console.log('[ML-Service] Mock service: Simulating virtual try-on processing...');
+  console.log('[ML-Service] Mock service: Body image:', request.bodyImageUrl);
+  console.log('[ML-Service] Mock service: Garment image:', request.garmentImageUrl);
+  
   await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
 
-  // Return the body image as result (placeholder)
-  // In a real scenario, you'd return a properly processed image
-  console.log('[ML-Service] Mock service: Returning body image as placeholder result');
+  // For now, return the body image with a note that this is mock mode
+  // In a real implementation, you'd process the images here
+  console.log('[ML-Service] Mock service: Returning body image (mock mode enabled)');
+  console.log('[ML-Service] Mock service: To enable real processing, set USE_MOCK_ML=false and configure Hugging Face or Replicate');
+  
   return {
     resultUrl: request.bodyImageUrl, // Placeholder - returns original body image
     modelUsed: 'mock',
