@@ -187,8 +187,9 @@ export default function HistoryPage() {
                   </div>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <button
-                      onClick={() => handleDownload(tryOn.resultImageUrl, tryOn.id)}
-                      className="rounded-3xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-semibold text-white premium-shadow transition hover:scale-105"
+                      onClick={() => tryOn.resultUrl && handleDownload(tryOn.resultUrl, tryOn.id)}
+                      disabled={!tryOn.resultUrl}
+                      className="rounded-3xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-semibold text-white premium-shadow transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Download
                     </button>
