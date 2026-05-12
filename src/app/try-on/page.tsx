@@ -264,50 +264,86 @@ export default function TryOnPage() {
           <p className="mt-4 text-sm text-slate-400">Processing usually completes in under 30 seconds.</p>
         </div>
 
-        {result && result.status === "completed" && result.resultUrl && (
+        {result && (
           <div className="rounded-[2rem] glass premium-shadow p-8 overflow-hidden">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-3xl font-black gradient-text">Result</h2>
-                <p className="mt-2 text-slate-300">Download or save your latest virtual try-on preview.</p>
+                <h2 className="text-3xl font-black gradient-text">Try-On Result</h2>
+                <p className="mt-2 text-slate-300">
+                  {result.status === "completed"
+                    ? "Your virtual try-on preview is ready."
+                    : result.status === "processing"
+                    ? "Your image is being generated. This can take a few moments."
+                    : result.status === "pending"
+                    ? "Try-on request submitted. Waiting for processing to start."
+                    : "Checking the latest status for your result."}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Status: <span className="font-semibold text-white">{result.status}</span>
+                </p>
               </div>
               <div className="flex flex-wrap gap-4">
-                <button
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(result.resultUrl!);
-                      const blob = await response.blob();
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `try-on-result-${result.id}.jpg`;
-                      document.body.appendChild(a);
-                      a.click();
-                      window.URL.revokeObjectURL(url);
-                      document.body.removeChild(a);
-                    } catch (err) {
-                      setError("Failed to download image");
-                    }
-                  }}
-                  className="rounded-3xl bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-3 text-sm font-black text-slate-950 premium-shadow transition hover:scale-105"
-                >
-                  Download
-                </button>
-                <Link href="/history" className="rounded-3xl glass px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 border border-white/10">
-                  View History
-                </Link>
+                {result.status === "completed" && result.resultUrl ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(result.resultUrl!);
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `try-on-result-${result.id}.jpg`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        } catch (err) {
+                          setError("Failed to download image");
+                        }
+                      }}
+                      className="rounded-3xl bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-3 text-sm font-black text-slate-950 premium-shadow transition hover:scale-105"
+                    >
+                      Download
+                    </button>
+                    <Link href="/history" className="rounded-3xl glass px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 border border-white/10">
+                      View History
+                    </Link>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (result.status !== "completed") {
+                        setError("Please wait until the result is ready to download.");
+                      }
+                    }}
+                    className="rounded-3xl glass px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 border border-white/10"
+                  >
+                    {result.status === "completed" ? "Download" : "Waiting..."}
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="relative overflow-hidden rounded-[2rem] glass p-4 premium-shadow">
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 pointer-events-none" />
-              <div className="relative h-[28rem] rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl">
-                <Image
-                  src={result.resultUrl}
-                  alt="Try-on result"
-                  fill
-                  className="object-cover"
-                />
+              <div className="relative h-[28rem] rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl flex items-center justify-center bg-slate-950/80">
+                {result.status === "completed" && result.resultUrl ? (
+                  <Image
+                    src={result.resultUrl}
+                    alt="Try-on result"
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-center px-8">
+                    <div className="h-20 w-20 rounded-full border-4 border-cyan-500/40 border-t-white animate-spin" />
+                    <p className="text-lg font-semibold text-white">Generating your preview...</p>
+                    <p className="max-w-md text-sm text-slate-400">
+                      Your virtual try-on is processing in the background. This may take a minute depending on model load.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

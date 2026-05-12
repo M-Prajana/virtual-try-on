@@ -1,5 +1,15 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
+import fs from 'fs';
+import path from 'path';
+
+const LOCAL_UPLOAD_DIR = path.join(process.cwd(), 'public', 'local_uploads');
+
+function ensureLocalUploadDir() {
+  if (!fs.existsSync(LOCAL_UPLOAD_DIR)) {
+    fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
+  }
+}
 
 // Configure Cloudinary
 cloudinary.config({
@@ -26,9 +36,9 @@ export async function uploadImage(
   userId?: string,
   mimeType: string = 'image/jpeg'
 ): Promise<UploadResult> {
-  try {
-    const effectiveMimeType = mimeType || 'image/jpeg';
+  const effectiveMimeType = mimeType || 'image/jpeg';
 
+  try {
     console.log('[Cloudinary] uploadImage', {
       folder,
       mimeType: effectiveMimeType,
@@ -65,7 +75,7 @@ export async function uploadImage(
         bufferStream.pipe(uploadStream);
       });
     } else {
-      const uploadSource = `data:${effectiveMimeType};base64,${file.toString('base64')}`;
+      const uploadSource = `data:${effectiveMimeType};base64,${file}`;
       result = await cloudinary.uploader.upload(uploadSource, {
         folder: `virtual-tryon/${folder}`,
         resource_type: 'image',
@@ -88,15 +98,49 @@ export async function uploadImage(
     console.error('Error uploading to Cloudinary:', {
       message: error?.message,
       name: error?.name,
+      code: error?.code,
       http_code: error?.http_code,
       status_code: error?.status_code,
       details: error?.details || error?.error || null,
       raw: error,
     });
-    const originalMessage = error?.message || JSON.stringify(error) || 'unknown error';
-    const uploadError = new Error(`Failed to upload image: ${originalMessage}`);
-    (uploadError as any).original = error;
-    throw uploadError;
+
+    try {
+      ensureLocalUploadDir();
+      const extension = effectiveMimeType.split('/')[1]?.split(';')[0] || 'png';
+      const fileName = `${folder}_${userId || 'anon'}_${Date.now()}.${extension}`;
+      const filePath = path.join(LOCAL_UPLOAD_DIR, fileName);
+      let fileBuffer: Buffer;
+
+      if (typeof file === 'string') {
+        if (file.startsWith('data:')) {
+          const base64Data = file.split(',')[1];
+          fileBuffer = Buffer.from(base64Data, 'base64');
+        } else {
+          fileBuffer = Buffer.from(file, 'utf-8');
+        }
+      } else {
+        fileBuffer = file;
+      }
+
+      fs.writeFileSync(filePath, fileBuffer);
+      console.log('[Cloudinary] Upload fallback: saved locally', filePath);
+
+      return {
+        url: `/local_uploads/${fileName}`,
+        publicId: fileName,
+        width: 0,
+        height: 0,
+        format: extension,
+        size: fileBuffer.length,
+      };
+    } catch (localError: any) {
+      console.error('Local fallback upload failed:', localError);
+      const originalMessage = error?.message || JSON.stringify(error) || 'unknown error';
+      const uploadError = new Error(`Failed to upload image: ${originalMessage}`);
+      (uploadError as any).original = error;
+      throw uploadError;
+    }
   }
 }
 

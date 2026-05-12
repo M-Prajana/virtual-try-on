@@ -35,3 +35,9 @@ next-env.d.ts
 
 # prisma
 prisma/migrations/
+
+# local development artifacts
+*.swp
+weights/
+output*.png
+*.pyc
