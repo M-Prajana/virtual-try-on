@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ImageUpload } from "@/components/image-upload";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 interface TryOnResult {
   id: string;
@@ -20,16 +21,15 @@ interface TryOnResult {
 }
 
 export default function TryOnPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [bodyImage, setBodyImage] = useState<File | null>(null);
   const [garmentImage, setGarmentImage] = useState<File | null>(null);
-  const [bodyPreview, setBodyPreview] = useState("");
-  const [garmentPreview, setGarmentPreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<TryOnResult | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
 
   if (status === "unauthenticated") {
     router.push("/login");
@@ -38,28 +38,19 @@ export default function TryOnPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-14 w-14 rounded-full border-4 border-white/20 border-t-white animate-spin"></div>
-          <p className="text-lg">Loading your studio...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 rounded-full border-4 border-border border-t-brand animate-spin" />
       </div>
     );
   }
 
   const handleBodyImageSelect = (file: File) => {
     setBodyImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setBodyPreview(reader.result as string);
-    reader.readAsDataURL(file);
     setError("");
   };
 
   const handleGarmentImageSelect = (file: File) => {
     setGarmentImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setGarmentPreview(reader.result as string);
-    reader.readAsDataURL(file);
     setError("");
   };
 
@@ -68,11 +59,9 @@ export default function TryOnPage() {
       setError("Please upload both a body photo and a garment image.");
       return;
     }
-
     setLoading(true);
     setError("");
     setResult(null);
-
     try {
       const formBody = new FormData();
       formBody.append("image", bodyImage);
@@ -91,14 +80,9 @@ export default function TryOnPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bodyImageId: bodyData.data.id, garmentImageId: garmentData.data.id }),
       });
-
       if (!tryOnResponse.ok) throw new Error("Failed to generate try-on");
       const tryOnJson = await tryOnResponse.json();
-      setResult({
-        id: tryOnJson.data.id,
-        status: tryOnJson.data.status,
-        createdAt: tryOnJson.data.createdAt,
-      });
+      setResult({ id: tryOnJson.data.id, status: tryOnJson.data.status, createdAt: tryOnJson.data.createdAt });
       await pollTryOnResult(tryOnJson.data.id);
     } catch (err: any) {
       setError(err.message || "An error occurred. Please try again.");
@@ -109,16 +93,13 @@ export default function TryOnPage() {
   const pollTryOnResult = async (id: string) => {
     setIsPolling(true);
     try {
-      const maxAttempts = 12;
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      for (let attempt = 0; attempt < 12; attempt++) {
         const statusResponse = await fetch(`/api/try-on/${id}`);
         const statusJson = await statusResponse.json();
         if (!statusResponse.ok) throw new Error(statusJson.error || "Unable to check status");
-
         setResult(statusJson.data);
         if (statusJson.data.status === "completed") break;
         if (statusJson.data.status === "failed") throw new Error("Try-on processing failed.");
-
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (err: any) {
@@ -132,223 +113,222 @@ export default function TryOnPage() {
   const handleReset = () => {
     setBodyImage(null);
     setGarmentImage(null);
-    setBodyPreview("");
-    setGarmentPreview("");
     setError("");
     setResult(null);
+    setResetKey((k) => k + 1);
   };
 
+  const bothUploaded = bodyImage && garmentImage;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-950 text-white overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.25),_transparent_25%),radial-gradient(circle_at_bottom_right,_rgba(139,92,246,0.25),_transparent_25%)]" />
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
-        <header className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Link href="/" className="inline-flex items-center gap-3 text-white">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-xl">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
-              <span className="text-2xl font-black tracking-tight">Virtual Try-On</span>
-            </Link>
-            <p className="mt-2 text-sm text-slate-300/80">Create your next outfit preview in minutes.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="hidden rounded-3xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 sm:inline-flex">
-              Dashboard
-            </Link>
-            <ThemeToggle />
-          </div>
-        </header>
+    <div className="min-h-screen bg-background text-foreground">
+      <SiteNav />
 
-        {error && (
-          <div className="mb-8 rounded-[2rem] border border-rose-400/30 bg-rose-500/10 p-6 text-rose-100 shadow-xl">
-            <p className="font-semibold">{error}</p>
-          </div>
-        )}
+      <main className="py-10">
+        <div className="mx-auto max-w-5xl px-6">
 
-        <div className="grid gap-8 xl:grid-cols-[1fr_400px] mb-8">
-          <div className="rounded-[2rem] glass premium-shadow p-8">
-            <div className="mb-8 space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 border border-cyan-500/20">AI Virtual Try-On</span>
-              <h1 className="text-5xl font-black tracking-tight gradient-text">Upload, generate, and preview your outfit in real time.</h1>
-              <p className="max-w-3xl text-lg leading-8 text-slate-300/80">
-                Use our AI studio to blend your photo with any garment image and get a photorealistic preview you can download or save.
-              </p>
+          {/* Page header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-brand">AI-Powered</span>
+              <span className="text-[11px] text-muted-foreground">·</span>
+              <span className="text-[11px] uppercase tracking-widest text-muted-foreground">Flux 1.0 VTON</span>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl glass p-6 border border-white/10 premium-shadow">
-                <p className="text-sm text-slate-300">Recommended</p>
-                <p className="mt-3 text-2xl font-semibold gradient-text">Front-facing photos</p>
-              </div>
-              <div className="rounded-3xl glass p-6 border border-white/10 premium-shadow">
-                <p className="text-sm text-slate-300">Best results</p>
-                <p className="mt-3 text-2xl font-semibold gradient-text">Clear lighting</p>
-              </div>
-            </div>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">Virtual Try-On Studio</h1>
+            <p className="text-muted-foreground mt-2 max-w-xl">
+              Upload a body photo and a garment image — our AI generates a realistic try-on in under 30 seconds.
+            </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[2rem] glass premium-shadow p-6">
-              <h2 className="text-xl font-bold gradient-text">Session summary</h2>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl glass p-5 border border-white/10 premium-shadow">
-                  <p className="text-sm text-slate-300">Images uploaded</p>
-                  <p className="mt-3 text-3xl font-bold gradient-text">{bodyImage || garmentImage ? 2 : 0}</p>
-                </div>
-                <div className="rounded-3xl glass p-5 border border-white/10 premium-shadow">
-                  <p className="text-sm text-slate-300">AI status</p>
-                  <p className="mt-3 text-3xl font-bold gradient-text">{isPolling ? "Processing" : result ? result.status : "Ready"}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-[2rem] glass premium-shadow p-6">
-              <h2 className="text-xl font-bold gradient-text">Need help?</h2>
-              <p className="mt-3 text-slate-300 leading-7">Upload your photo and garment, then press "Generate" to see an instant preview. You can download the result once processing completes.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-2 mb-8">
-          <div className="rounded-[2rem] glass premium-shadow p-6">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-cyan-500/10 text-cyan-200 border border-cyan-500/20">
-                <span className="text-xl">1</span>
-              </div>
+          {/* Upload section */}
+          <div className="card-soft p-6 mb-5">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Body photo */}
               <div>
-                <h3 className="text-lg font-bold gradient-text">Upload your body photo</h3>
-                <p className="text-sm text-slate-300">Choose a full-body front photo for the best fit.</p>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="w-6 h-6 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Your body photo</p>
+                    <p className="text-xs text-muted-foreground">Full-body, front-facing</p>
+                  </div>
+                </div>
+                <ImageUpload
+                  key={`body-${resetKey}`}
+                  label="Body Photo"
+                  accept="image/*"
+                  compact
+                  onImageSelect={handleBodyImageSelect}
+                />
               </div>
-            </div>
-            <ImageUpload label="Body photo" accept="image/*" preview={bodyPreview} onImageSelect={handleBodyImageSelect} />
-          </div>
 
-          <div className="rounded-[2rem] glass premium-shadow p-6">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-pink-500/10 text-pink-200 border border-pink-500/20">
-                <span className="text-xl">2</span>
-              </div>
+              {/* Garment */}
               <div>
-                <h3 className="text-lg font-bold gradient-text">Upload your garment</h3>
-                <p className="text-sm text-slate-300">Any clothing item works: shirt, dress, jacket, or top.</p>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="w-6 h-6 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Garment image</p>
+                    <p className="text-xs text-muted-foreground">Any clothing item works</p>
+                  </div>
+                </div>
+                <ImageUpload
+                  key={`garment-${resetKey}`}
+                  label="Garment"
+                  accept="image/*"
+                  compact
+                  onImageSelect={handleGarmentImageSelect}
+                />
               </div>
             </div>
-            <ImageUpload label="Garment image" accept="image/*" preview={garmentPreview} onImageSelect={handleGarmentImageSelect} />
-          </div>
-        </div>
 
-        <div className="mb-10 rounded-[2rem] glass premium-shadow p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold gradient-text">Finalize your preview</h2>
-              <p className="mt-2 text-slate-300">Generate a polished virtual try-on image once both uploads are ready.</p>
+            {/* Tips strip */}
+            <div className="mt-5 pt-4 border-t border-border flex flex-wrap gap-x-6 gap-y-2">
+              {[
+                "Front-facing pose works best",
+                "Good lighting improves accuracy",
+                "You can drag images from Myntra",
+              ].map((tip) => (
+                <div key={tip} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand/60 shrink-0" />
+                  {tip}
+                </div>
+              ))}
             </div>
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={handleGenerateTryOn}
-                disabled={loading || !bodyImage || !garmentImage}
-                className="inline-flex items-center justify-center rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-7 py-4 text-base font-black text-white premium-shadow transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Generating..." : "Generate Preview"}
-              </button>
-              <button
-                onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-3xl glass px-7 py-4 text-base font-semibold text-white transition hover:bg-white/10 border border-white/10"
-              >
+          </div>
+
+          {/* Action bar */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            <button
+              onClick={handleGenerateTryOn}
+              disabled={loading || !bothUploaded}
+              className="btn-dark flex-1 py-3.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                  {isPolling ? "Generating your look…" : "Uploading images…"}
+                </span>
+              ) : (
+                "Generate Try-On Preview →"
+              )}
+            </button>
+            {(bodyImage || garmentImage || result) && (
+              <button onClick={handleReset} className="btn-outline px-8 py-3.5">
                 Reset
               </button>
-            </div>
+            )}
           </div>
-          <p className="mt-4 text-sm text-slate-400">Processing usually completes in under 30 seconds.</p>
-        </div>
 
-        {result && (
-          <div className="rounded-[2rem] glass premium-shadow p-8 overflow-hidden">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {error && (
+            <div className="mb-6 p-4 rounded-xl border border-destructive/30 bg-destructive/10">
+              <p className="text-sm text-destructive font-medium">{error}</p>
+            </div>
+          )}
+
+          {/* Status indicator */}
+          {loading && (
+            <div className="mb-6 rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full border-2 border-border border-t-brand animate-spin shrink-0" />
               <div>
-                <h2 className="text-3xl font-black gradient-text">Try-On Result</h2>
-                <p className="mt-2 text-slate-300">
-                  {result.status === "completed"
-                    ? "Your virtual try-on preview is ready."
-                    : result.status === "processing"
-                    ? "Your image is being generated. This can take a few moments."
-                    : result.status === "pending"
-                    ? "Try-on request submitted. Waiting for processing to start."
-                    : "Checking the latest status for your result."}
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Status: <span className="font-semibold text-white">{result.status}</span>
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-4">
-                {result.status === "completed" && result.resultUrl ? (
-                  <>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const response = await fetch(result.resultUrl!);
-                          const blob = await response.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `try-on-result-${result.id}.jpg`;
-                          document.body.appendChild(a);
-                          a.click();
-                          window.URL.revokeObjectURL(url);
-                          document.body.removeChild(a);
-                        } catch (err) {
-                          setError("Failed to download image");
-                        }
-                      }}
-                      className="rounded-3xl bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-3 text-sm font-black text-slate-950 premium-shadow transition hover:scale-105"
-                    >
-                      Download
-                    </button>
-                    <Link href="/history" className="rounded-3xl glass px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 border border-white/10">
-                      View History
-                    </Link>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (result.status !== "completed") {
-                        setError("Please wait until the result is ready to download.");
-                      }
-                    }}
-                    className="rounded-3xl glass px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 border border-white/10"
-                  >
-                    {result.status === "completed" ? "Download" : "Waiting..."}
-                  </button>
-                )}
+                <p className="text-sm font-semibold text-foreground">Processing your try-on</p>
+                <p className="text-xs text-muted-foreground">This usually takes 20–30 seconds. Hang tight!</p>
               </div>
             </div>
+          )}
 
-            <div className="relative overflow-hidden rounded-[2rem] glass p-4 premium-shadow">
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 pointer-events-none" />
-              <div className="relative h-[28rem] rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl flex items-center justify-center bg-slate-950/80">
-                {result.status === "completed" && result.resultUrl ? (
-                  <Image
-                    src={result.resultUrl}
-                    alt="Try-on result"
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-center px-8">
-                    <div className="h-20 w-20 rounded-full border-4 border-cyan-500/40 border-t-white animate-spin" />
-                    <p className="text-lg font-semibold text-white">Generating your preview...</p>
-                    <p className="max-w-md text-sm text-slate-400">
-                      Your virtual try-on is processing in the background. This may take a minute depending on model load.
+          {/* Result section */}
+          {result && (
+            <div className="card-soft p-6">
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <div>
+                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Result</p>
+                  <h2 className="text-2xl font-bold text-foreground">Your Try-On Preview</h2>
+                </div>
+                <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  result.status === "completed"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-surface text-muted-foreground"
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${result.status === "completed" ? "bg-green-500" : "bg-amber-400 animate-pulse"}`} />
+                  {result.status === "completed" ? "Complete" : result.status === "processing" ? "Processing" : "Pending"}
+                </span>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+                {/* Result image */}
+                <div className="rounded-xl border border-border bg-surface overflow-hidden">
+                  <div className="relative h-[480px]">
+                    {result.status === "completed" && result.resultUrl ? (
+                      <Image src={result.resultUrl} alt="Try-on result" fill className="object-contain" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full gap-4">
+                        <div className="w-16 h-16 rounded-full border-4 border-border border-t-brand animate-spin" />
+                        <div className="text-center">
+                          <p className="font-semibold text-foreground">Generating your preview</p>
+                          <p className="text-sm text-muted-foreground mt-1">Result will appear here shortly</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Side panel */}
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-border bg-surface p-4">
+                    <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Details</p>
+                    <p className="text-xs text-muted-foreground leading-5">
+                      {result.status === "completed"
+                        ? "Your virtual try-on is ready. Download it or view your full history."
+                        : "Processing your image. This takes around 20–30 seconds using the Flux VTON model."}
                     </p>
                   </div>
-                )}
+
+                  <div className="rounded-xl border border-border bg-surface p-4">
+                    <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Try-On ID</p>
+                    <p className="text-xs font-mono text-foreground break-all">{result.id}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {result.status === "completed" && result.resultUrl ? (
+                      <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(result.resultUrl!);
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `try-on-${result.id}.jpg`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                            } catch {
+                              setError("Failed to download image");
+                            }
+                          }}
+                          className="btn-dark w-full py-2.5"
+                        >
+                          Download Image
+                        </button>
+                        <Link href="/history" className="btn-outline w-full py-2.5 justify-center">
+                          View History
+                        </Link>
+                      </>
+                    ) : (
+                      <div className="w-full py-2.5 rounded-full border border-border bg-surface text-muted-foreground text-sm font-medium text-center">
+                        Waiting for result…
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
+
+      <SiteFooter />
     </div>
   );
 }

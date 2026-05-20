@@ -1,146 +1,203 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 export default async function Home() {
   const session = await auth();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <main className="glass p-10 rounded-[3rem] max-w-7xl mx-auto px-4 py-10 premium-shadow">
-        <header className="mb-12 flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-4 shadow-2xl shadow-indigo-500/20">
-              <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 12l2 2 4-4" />
-                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-300">Virtual Try-On</p>
-              <h1 className="text-6xl font-black tracking-tight gradient-text">Fashion try-on that feels effortless.</h1>
-            </div>
-          </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <SiteNav />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <ThemeToggle />
-            <div className="hidden sm:inline-flex items-center gap-3 rounded-full bg-white/90 dark:bg-slate-900/90 px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-800">
-              <span className="text-sm text-slate-600 dark:text-slate-300">Experience AI styling</span>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr] mb-8">
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-            <div className="mb-8">
-              <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l1.176 3.618h3.806l-3.076 2.236 1.176 3.618L12 9.236 8.918 11.472l1.176-3.618L6.999 5.618h3.806L12 2z" /></svg>
-                Newly redesigned for smarter styling
-              </span>
+      <main>
+        {/* ── Hero ── */}
+        <section className="py-24 md:py-36 border-b border-border">
+          <div className="mx-auto max-w-5xl px-6 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 border border-brand/20 mb-8">
+              <div className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+              <span className="text-xs font-semibold text-brand">AI-Powered Fashion Studio</span>
             </div>
 
-            <h2 className="text-4xl font-black tracking-tight text-slate-950 dark:text-white mb-6">Try on clothes virtually, faster and more beautifully than ever.</h2>
-            <p className="max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300 mb-8">
-              Upload your photo and garment image, then let our AI generate a realistic outfit preview. Perfect for fashion shoppers, influencers, and anyone who wants a better fit before buying.
+            <h1 className="font-display text-5xl md:text-7xl font-extrabold uppercase leading-tight max-w-3xl mx-auto">
+              Dress for your <span className="text-brand">colours.</span><br />
+              Try before you buy.
+            </h1>
+
+            <p className="text-lg text-muted-foreground mt-6 max-w-xl mx-auto leading-relaxed">
+              Discover your personal colour season and virtually try on any outfit —
+              powered by AI, all from one place.
             </p>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-3xl bg-slate-50 p-6 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-                <p className="text-2xl font-semibold">Fast</p>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Lightning quick AI generation.</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-6 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-                <p className="text-2xl font-semibold">Accurate</p>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Realistic fit and lighting every time.</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-6 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-                <p className="text-2xl font-semibold">Private</p>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Images deleted after processing.</p>
-              </div>
-            </div>
-          </section>
-
-          <aside className="space-y-6">
-            <div className="glass p-7 rounded-[2rem] premium-shadow border border-white/10">
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.35em] text-slate-300">Monthly Plan</p>
-                  <p className="mt-3 text-4xl font-black text-white">$29</p>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
-                  Popular
-                </span>
-              </div>
-              <p className="text-slate-400 dark:text-slate-500 leading-relaxed mb-6">Unlimited try-ons, HD download, priority rendering, and private image handling.</p>
-              <Link href={session ? "/try-on" : "/register"} className="inline-flex w-full items-center justify-center rounded-3xl bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600 px-8 py-4 text-base font-semibold text-white shadow-2xl shadow-indigo-500/20 transition hover:scale-105">
-                {session ? "Start Creating" : "Create Account"}
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-10">
+              <Link href={session ? "/try-on" : "/register"} className="btn-brand px-8 py-3 text-base">
+                Try On Now →
+              </Link>
+              <Link href={session ? "/color-analysis" : "/register"} className="btn-outline px-8 py-3 text-base">
+                Color Analysis
               </Link>
             </div>
-
-            <div className="glass p-6 rounded-[2rem] premium-shadow border border-white/10">
-              <h3 className="text-lg font-bold text-white mb-4">Quick actions</h3>
-              <div className="space-y-4">
-                <div className="rounded-3xl bg-slate-50 p-4 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Featured</p>
-                  <p className="mt-2 font-semibold text-slate-950 dark:text-white">Try on the latest collections</p>
-                </div>
-                <div className="rounded-3xl bg-slate-50 p-4 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Secure</p>
-                  <p className="mt-2 font-semibold text-slate-950 dark:text-white">Private image processing</p>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-          {[
-            { title: "Realistic Results", description: "AI adapts shape, texture, and shadow precisely.", icon: "🪄" },
-            { title: "Instant Preview", description: "See your outfit in seconds without changing clothes.", icon: "⚡" },
-            { title: "HD Quality", description: "Export sharp images ideal for social sharing.", icon: "📸" },
-            { title: "Always Private", description: "Images are removed after each session.", icon: "🔒" },
-          ].map((item) => (
-              <div key={item.title} className="glass p-6 rounded-[2rem] premium-shadow border border-white/10 hover:scale-[1.02] transition">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-indigo-100 text-indigo-700 text-xl">
-                  {item.icon}
-                </div>
-                <h4 className="text-xl font-semibold text-white mb-2">{item.title}</h4>
-                <p className="text-sm text-slate-300 leading-relaxed">{item.description}</p>
-            </div>
-          ))}
+          </div>
         </section>
 
-        <section className="glass p-6 rounded-[2rem] premium-shadow border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Activity summary</h2>
-              <p className="text-sm text-slate-300">A clean overview of what you can do next.</p>
+        {/* ── Season palette strip ── */}
+        <section className="py-10 border-b border-border overflow-hidden bg-surface/40">
+          <div className="mx-auto max-w-7xl px-6">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center mb-6">12 colour seasons detected by AI</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {[
+                { label: "Bright Spring", colors: ["#ff4040", "#ffe000", "#00bfff"] },
+                { label: "True Spring",   colors: ["#ffd700", "#90ee90", "#ffa07a"] },
+                { label: "Light Spring",  colors: ["#ffb6c1", "#ffe4e1", "#87ceeb"] },
+                { label: "Light Summer",  colors: ["#add8e6", "#dda0dd", "#f08080"] },
+                { label: "True Summer",   colors: ["#4682b4", "#bc8f8f", "#8fbc8f"] },
+                { label: "Soft Summer",   colors: ["#808080", "#c0c0c0", "#008080"] },
+                { label: "Soft Autumn",   colors: ["#8b4513", "#cd853f", "#808000"] },
+                { label: "True Autumn",   colors: ["#ff4500", "#8b6914", "#228b22"] },
+                { label: "Deep Autumn",   colors: ["#4a2c17", "#8b4513", "#006400"] },
+                { label: "Deep Winter",   colors: ["#111111", "#a9a9a9", "#00008b"] },
+                { label: "True Winter",   colors: ["#000000", "#ffffff", "#ff0000"] },
+                { label: "Bright Winter", colors: ["#0000ff", "#ff0000", "#ffffff"] },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-card border border-border shadow-sm">
+                  <div className="flex gap-1">
+                    {s.colors.map((c) => (
+                      <div key={c} className="w-4 h-4 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{s.label}</span>
+                </div>
+              ))}
             </div>
-            <Link href={session ? "/dashboard" : "/login"} className="inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-indigo-100 hover:bg-white/20 transition">
-              {session ? "Open dashboard" : "Sign in"}
-            </Link>
           </div>
+        </section>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-3xl bg-slate-50 p-5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Try-On Results</p>
-              <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">Instant</p>
+        {/* ── Feature cards ── */}
+        <section className="py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <div className="text-center mb-14">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Two powerful tools</p>
+              <h2 className="font-display text-4xl font-extrabold uppercase">What we offer</h2>
             </div>
-            <div className="rounded-3xl bg-slate-50 p-5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Favorites</p>
-              <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">Saved</p>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Virtual Try-On */}
+              <div className="card-soft p-8 flex flex-col">
+                <div className="w-12 h-12 rounded-2xl bg-foreground flex items-center justify-center mb-6">
+                  <svg className="w-5 h-5 text-background" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Feature 01</span>
+                <h3 className="text-2xl font-bold text-foreground mb-3">Virtual Try-On</h3>
+                <p className="text-muted-foreground leading-7 flex-1 text-sm">
+                  Upload your photo and any garment. Our AI places the clothing on you with
+                  realistic fit and lighting — no changing room needed.
+                </p>
+                <ul className="mt-6 space-y-2 text-sm text-muted-foreground mb-8">
+                  {["Upload body photo + garment image", "AI generates realistic try-on in ~30s", "Download and save your favourite looks"].map((s) => (
+                    <li key={s} className="flex items-center gap-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-foreground shrink-0" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+                <Link href={session ? "/try-on" : "/register"} className="btn-dark self-start">
+                  Try it now →
+                </Link>
+              </div>
+
+              {/* Color Analysis */}
+              <div className="card-soft p-8 flex flex-col">
+                <div className="w-12 h-12 rounded-2xl bg-brand/15 flex items-center justify-center mb-6">
+                  <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Feature 02</span>
+                <h3 className="text-2xl font-bold text-foreground mb-3">Color Analysis</h3>
+                <p className="text-muted-foreground leading-7 flex-1 text-sm">
+                  Discover your personal colour season using 12-season colour theory. Get a
+                  curated palette and Myntra shopping recommendations tailored to you.
+                </p>
+                <ul className="mt-6 space-y-2 text-sm text-muted-foreground mb-8">
+                  {["Upload a clear face photo", "AI detects your colour season", "Shop your palette directly on Myntra"].map((s) => (
+                    <li key={s} className="flex items-center gap-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+                <Link href={session ? "/color-analysis" : "/register"} className="btn-brand self-start">
+                  Analyse now →
+                </Link>
+              </div>
             </div>
-            <div className="rounded-3xl bg-slate-50 p-5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Privacy</p>
-              <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">Protected</p>
+          </div>
+        </section>
+
+        {/* ── Stats ── */}
+        <section className="py-16 border-y border-border bg-surface/40">
+          <div className="mx-auto max-w-5xl px-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+              {[
+                { label: "Colour seasons", value: "12" },
+                { label: "Processing time", value: "< 30s" },
+                { label: "Image formats", value: "3" },
+                { label: "Cost", value: "Free" },
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <p className="font-display text-4xl font-extrabold text-foreground">{stat.value}</p>
+                  <p className="mt-2 text-xs text-muted-foreground uppercase tracking-widest">{stat.label}</p>
+                </div>
+              ))}
             </div>
-            <div className="rounded-3xl bg-slate-50 p-5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Support</p>
-              <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">24/7</p>
+          </div>
+        </section>
+
+        {/* ── How it works ── */}
+        <section className="py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <div className="text-center mb-14">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Simple process</p>
+              <h2 className="font-display text-4xl font-extrabold uppercase">How it works</h2>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                { step: "01", title: "Create an account", body: "Sign up for free in seconds — no credit card required." },
+                { step: "02", title: "Upload your photos", body: "Add a body photo for Try-On, or a face photo for Color Analysis." },
+                { step: "03", title: "Get your results", body: "Download your try-on or shop your personalised colour palette on Myntra." },
+              ].map((item) => (
+                <div key={item.step} className="card-soft p-8">
+                  <p className="font-display text-5xl font-extrabold text-brand/20 mb-4 leading-none">{item.step}</p>
+                  <h3 className="text-lg font-bold text-foreground mb-2">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-6">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── CTA ── */}
+        <section className="py-24 border-t border-border">
+          <div className="mx-auto max-w-5xl px-6 text-center">
+            <h2 className="font-display text-5xl font-extrabold uppercase mb-4">Ready to start?</h2>
+            <p className="text-lg text-muted-foreground max-w-md mx-auto mb-10">
+              Create a free account and start styling smarter today.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/register" className="btn-brand px-10 py-3.5 text-base">
+                Get started free →
+              </Link>
+              <Link href="/login" className="btn-outline px-10 py-3.5 text-base">
+                Sign in
+              </Link>
             </div>
           </div>
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
